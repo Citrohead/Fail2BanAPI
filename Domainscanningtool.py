@@ -1,6 +1,8 @@
 import whois
-import validators  # pip install validators
+import validators # pip install validators
 import requests
+import json
+import socket
 from config import api_key
 
 dm = input("Input domain name: ")
