@@ -16,8 +16,6 @@ def extract_root_domain(url):
 
 dm = input("Input domain name: ")
 
-dm = input("Input domain name: ")
-
 def domain_lookup(dm):
     if validators.domain(dm):
         try:
