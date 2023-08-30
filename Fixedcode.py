@@ -16,6 +16,12 @@ def extract_root_domain(url):
 
 dm = input("Input domain name: ")
 
+dm = extract_root_domain(dm)
+
+# Remove the http:// or https:// prefix
+if dm.startswith("http://") or dm.startswith("https://"):
+    dm = dm.split("//", 1)[1]  
+
 def domain_lookup(dm):
     if validators.domain(dm):
         try:
