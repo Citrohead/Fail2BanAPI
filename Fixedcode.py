@@ -4,6 +4,17 @@ import requests
 import json
 import socket
 from config import api_key
+from urllib.parse import urlparse 
+
+#https://docs.python.org/3/library/urllib.parse.html
+def extract_root_domain(url):
+    parsed_url = urlparse(url)
+    if parsed_url.netloc.startswith("www."):
+        return parsed_url.netloc[4:]
+    else:
+        return parsed_url.netloc
+
+dm = input("Input domain name: ")
 
 dm = input("Input domain name: ")
 
