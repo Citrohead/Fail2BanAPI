@@ -4,7 +4,7 @@ import requests
 import json
 import socket
 from config import api_key
-from urllib.parse import urlparse
+from urllib.parse import urlparse 
 
 def extract_root_domain(url):
     parsed_url = urlparse(url)
@@ -13,72 +13,95 @@ def extract_root_domain(url):
     else:
         return parsed_url.netloc
 
-def get_domain_from_user():
-    dm = input("Input domain name: ")
-    return extract_root_domain(dm)
+def remove_prefix(domain):
+    return domain.split("//", 1)[-1]
 
-def get_domain_info(dm):
+def domain_lookup(dm):
     try:
         dm_info = whois.whois(dm)
         return dm_info
     except Exception as e:
         return f"{dm} lookup failed: {e}"
 
-def is_valid_domain(dm):
-    return validators.domain(dm)
-
-def get_abuse_report(ip_address):
-    url = 'https://api.abuseipdb.com/api/v2/check'
-    querystring = {'ipAddress': ip_address, 'maxAgeInDays': '90'}
-    headers = {'Accept': 'application/json', 'Key': api_key}
-
+def api_request_and_print_results(dm, lookup_results):
     try:
-        response = requests.get(url, headers=headers, params=querystring)
+        res = socket.gethostbyname(dm)
+
+        url = 'https://api.abuseipdb.com/api/v2/check'
+        
+        querystring = {
+            'ipAddress': res,
+            'maxAgeInDays': '90'
+        }
+
+        headers = {
+            'Accept': 'application/json',
+            'Key': api_key
+        }
+
+        response = requests.request(method='GET', url=url, headers=headers, params=querystring)
+        
+        # Check for successful API response
         response.raise_for_status()
 
-        return response.json()["data"]
+        data = response.json()
+
+        Abuse_report_history_isPublic = data["data"]["isPublic"]
+        Abuse_report_history_totalreports = data["data"]["totalReports"]
+        Abuse_report_history_abuseConfidenceScore = data["data"]["abuseConfidenceScore"]
+
+        abuse_report_status = "Safe"
+        if Abuse_report_history_abuseConfidenceScore > 75:
+            abuse_report_status = "Unsafe"
+
+        http_status_code = response.status_code
+
+        print("Domain entered: ", dm)
+
+        if isinstance(lookup_results.creation_date, list):
+            creation_date = lookup_results.creation_date[0]
+        else:
+            creation_date = lookup_results.creation_date
+
+        if creation_date:
+            print("Domain created at: ", str(creation_date))
+
+        if isinstance(lookup_results.expiration_date, list):
+            expiration_date = lookup_results.expiration_date[0]
+        else:
+            expiration_date = lookup_results.expiration_date
+
+        if expiration_date:
+            print("Domain expires at: ", str(expiration_date))
+
+        print("Website status code: ", http_status_code)
+        print("Abuse report history isPublic: ", Abuse_report_history_isPublic)
+        print("Abuse report history totalReports: ", Abuse_report_history_totalreports)
+        print("Abuse report history abuseConfidenceScore: ", Abuse_report_history_abuseConfidenceScore)
+        print("Abuse report status: ", abuse_report_status)
     except requests.exceptions.RequestException as req_ex:
-        raise RuntimeError(f"API request error: {req_ex}")
+        print(f"API request error: {req_ex}")
     except json.JSONDecodeError as json_ex:
-        raise RuntimeError(f"JSON decoding error: {json_ex}")
-
-def print_domain_info(dm, lookup_results, http_status_code, abuse_report_data):
-    print("Domain entered: ", dm)
-
-    creation_date = lookup_results.creation_date[0] if isinstance(lookup_results.creation_date, list) else lookup_results.creation_date
-    if creation_date:
-        print("Domain created at: ", str(creation_date))
-
-    expiration_date = lookup_results.expiration_date[0] if isinstance(lookup_results.expiration_date, list) else lookup_results.expiration_date
-    if expiration_date:
-        print("Domain expires at: ", str(expiration_date))
-
-    print("Website status code: ", http_status_code)
-    print("Abuse report history isPublic: ", abuse_report_data["isPublic"])
-    print("Abuse report history totalReports: ", abuse_report_data["totalReports"])
-    print("Abuse report history abuseConfidenceScore: ", abuse_report_data["abuseConfidenceScore"])
-
-    abuse_report_status = "Safe" if abuse_report_data["abuseConfidenceScore"] <= 75 else "Unsafe"
-    print("Abuse report status: ", abuse_report_status)
+        print(f"JSON decoding error: {json_ex}")
+    except Exception as e:
+        print(f"An error occurred: {e}")
 
 def main():
-    dm = get_domain_from_user()
+    dm = input("Input domain name: ")
 
-    if not is_valid_domain(dm):
-        print("Enter a valid domain")
+    # Extract the root domain
+    dm = extract_root_domain(dm)
+
+    # Remove the http:// or https:// prefix (if present)
+    dm = remove_prefix(dm)
+
+    # Check if the domain lookup was successful before proceeding
+    lookup_results = domain_lookup(dm)
+
+    if lookup_results is not None:
+        api_request_and_print_results(dm, lookup_results)
     else:
-        lookup_results = get_domain_info(dm)
-
-        if "creation_date" in lookup_results:
-            try:
-                ip_address = socket.gethostbyname(dm)
-                abuse_report_data = get_abuse_report(ip_address)
-
-                print_domain_info(dm, lookup_results, 200, abuse_report_data)
-            except Exception as e:
-                print(f"An error occurred: {e}")
-        else:
-            print(f"Domain {dm} lookup failed, domain is valid, but not registered")
+        print(f"Domain {dm} lookup failed, enter a valid domain")
 
 if __name__ == "__main__":
     main()
